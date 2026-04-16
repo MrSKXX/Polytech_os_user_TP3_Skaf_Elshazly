@@ -2,6 +2,7 @@
 #define CREME_H
 
 #define CREME_VERSION "3.0"
+#define BROADCAST_IP "192.168.88.255"
 
 void beuip_start(char *pseudo);
 void beuip_stop(void);

@@ -12,7 +12,6 @@ int Sortie(int N, char **P)
 {
     (void)N;
     (void)P;
-    printf("Fermeture de l'interpreteur.\n");
     beuip_stop();
     exit(0);
 }
@@ -54,56 +53,34 @@ int CommandeVers(int N, char **P)
 {
     (void)N; 
     (void)P;
-    
-    printf("biceps version 2.0\n");
-    printf("gescom version %s\n", GESCOM_VERSION);
-    printf("creme version %s\n", CREME_VERSION);
+    printf("biceps version finale (TP3)\n");
     return 1;
 }
 
 int CommandeBeuip(int N, char **P)
 {
-    if (N < 2) {
-        fprintf(stderr, "Utilisation: beuip start <pseudo> | beuip stop\n");
-        return 1;
-    }
+    if (N < 2) return 1;
     
-    if (strcmp(P[1], "start") == 0) {
-        if (N >= 3) {
-            beuip_start(P[2]);
-            printf("Serveur BEUIP demarre (pseudo: %s)\n", P[2]);
-        } else {
-            fprintf(stderr, "Utilisation: beuip start <pseudo>\n");
-        }
+    if (strcmp(P[1], "start") == 0 && N >= 3) {
+        beuip_start(P[2]);
     } else if (strcmp(P[1], "stop") == 0) {
         beuip_stop();
-        printf("Serveur BEUIP arrete.\n");
-    } else {
-        fprintf(stderr, "Commande beuip non reconnue.\n");
-    }
-    return 1;
-}
-
-int CommandeMess(int N, char **P)
-{
-    if (N < 2) {
-        fprintf(stderr, "Utilisation: mess liste | mess all <msg> | mess <pseudo> <msg>\n");
-        return 1;
-    }
-
-    if (strcmp(P[1], "liste") == 0) {
+    } else if (strcmp(P[1], "list") == 0) {
         beuip_liste();
-    } else if (strcmp(P[1], "all") == 0) {
-        if (N >= 3) {
-            beuip_mess_all(P[2]);
-        } else {
-            fprintf(stderr, "Utilisation: mess all <message>\n");
+    } else if (strcmp(P[1], "message") == 0 && N >= 4) {
+        char msg[1024] = "";
+        int i;
+        
+        /* Concatenation des mots du message separes par des espaces */
+        for (i = 3; i < N; i++) {
+            strcat(msg, P[i]);
+            if (i < N - 1) strcat(msg, " ");
         }
-    } else {
-        if (N >= 3) {
-            beuip_mess_pseudo(P[1], P[2]);
+
+        if (strcmp(P[2], "all") == 0) {
+            beuip_mess_all(msg);
         } else {
-            fprintf(stderr, "Utilisation: mess <pseudo> <message>\n");
+            beuip_mess_pseudo(P[2], msg);
         }
     }
     return 1;
@@ -116,7 +93,6 @@ void majComInt(void)
     ajouteCom("pwd", CommandePWD);
     ajouteCom("vers", CommandeVers);
     ajouteCom("beuip", CommandeBeuip);
-    ajouteCom("mess", CommandeMess);
 }
 
 int main(void)
@@ -131,11 +107,7 @@ int main(void)
     char *home;
 
     signal(SIGINT, SIG_IGN);
-
     majComInt();
-#ifdef TRACE
-    listeComInt();
-#endif
 
     home = getenv("HOME");
     if (home != NULL) {
@@ -150,8 +122,7 @@ int main(void)
     }
 
     user = getenv("USER");
-    if (user == NULL)
-        user = "unknown";
+    if (user == NULL) user = "unknown";
 
     if (gethostname(hostname, sizeof(hostname)) != 0)
         strcpy(hostname, "unknown");
@@ -172,18 +143,10 @@ int main(void)
         char *cmd_seq;
 
         while ((cmd_seq = strsep(&line_ptr, ";")) != NULL) {
-            if (analyseCom(cmd_seq) > 0) {
-#ifdef TRACE
-                fprintf(stderr, "TRACE: commande=%s, NMots=%d\n", Mots[0], NMots);
-#endif
-                if (!execComInt(NMots, Mots))
-                    execComExt(Mots);
-            }
+            execPipeline(cmd_seq);
         }
         free(line);
     }
-
-    printf("\nSortie de biceps. Au revoir !\n");
 
     if (home != NULL) {
         write_history(hist_file);
@@ -199,5 +162,9 @@ int main(void)
     }
 
     beuip_stop();
+
+    /* Liberation de l'historique readline pour eviter les fuites memoire */
+    clear_history();
+
     return 0;
 }

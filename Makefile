@@ -1,20 +1,14 @@
 CC = gcc
-CFLAGS = -Wall
+CFLAGS = -Wall -Werror
 LDFLAGS = -lreadline -lpthread
 
-all: servudp cliudp servbeuip clibeuip test_creme biceps
+all: biceps
 
-servudp: servudp.c
-	$(CC) $(CFLAGS) -o servudp servudp.c
+biceps: biceps.o creme.o gescom.o
+	$(CC) $(CFLAGS) -o biceps biceps.o creme.o gescom.o $(LDFLAGS)
 
-cliudp: cliudp.c
-	$(CC) $(CFLAGS) -o cliudp cliudp.c
-
-servbeuip: servbeuip.c
-	$(CC) $(CFLAGS) -o servbeuip servbeuip.c
-
-clibeuip: clibeuip.c
-	$(CC) $(CFLAGS) -o clibeuip clibeuip.c
+biceps.o: biceps.c gescom.h creme.h
+	$(CC) $(CFLAGS) -c biceps.c
 
 creme.o: creme.c creme.h
 	$(CC) $(CFLAGS) -c creme.c
@@ -22,14 +16,8 @@ creme.o: creme.c creme.h
 gescom.o: gescom.c gescom.h
 	$(CC) $(CFLAGS) -c gescom.c
 
-test_creme: test_creme.c creme.o
-	$(CC) $(CFLAGS) -o test_creme test_creme.c creme.o
-
-biceps: biceps.c creme.o gescom.o
-	$(CC) $(CFLAGS) -o biceps biceps.c creme.o gescom.o $(LDFLAGS)
-
-trace: clean
-	$(MAKE) CFLAGS="-Wall -DTRACE" all
+memory-leak: clean
+	$(CC) -g -O0 -Wall -Werror -o biceps-memory-leaks biceps.c creme.c gescom.c $(LDFLAGS)
 
 clean:
-	rm -f servudp cliudp servbeuip clibeuip test_creme biceps *.o
+	rm -f biceps biceps-memory-leaks *.o

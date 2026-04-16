@@ -1,8 +1,6 @@
 #ifndef GESCOM_H
 #define GESCOM_H
 
-#define GESCOM_VERSION "1.2"
-
 extern char **Mots;
 extern int NMots;
 

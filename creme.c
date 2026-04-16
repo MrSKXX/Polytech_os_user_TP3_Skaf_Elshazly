@@ -105,16 +105,14 @@ static void supprimeElt(char *adip) {
 
 static void listeElts(void) {
     struct elt *courant;
-    int i = 1;
-
     pthread_mutex_lock(&table_mutex);
-    printf("---- Table des participants ----\n");
     courant = liste_utilisateurs;
     while (courant != NULL) {
-        printf(" %d : %s - %s\n", i++, courant->adip, courant->nom);
+        if (strcmp(courant->adip, "127.0.0.1") != 0) {
+            printf("%s : %s\n", courant->adip, courant->nom);
+        }
         courant = courant->next;
     }
-    printf("--------------------------------\n");
     pthread_mutex_unlock(&table_mutex);
 }
 
@@ -140,20 +138,16 @@ static void commande(char octet1, char *message, char *pseudo) {
             courant = courant->next;
         }
     } else if (octet1 == '4' && pseudo != NULL) {
-        int found = 0;
         sprintf(msg_out, "9BEUIP%s", message);
         courant = liste_utilisateurs;
         while (courant != NULL) {
             if (strcmp(courant->nom, pseudo) == 0) {
                 dest.sin_addr.s_addr = inet_addr(courant->adip);
                 sendto(sid, msg_out, strlen(msg_out), 0, (struct sockaddr *)&dest, sizeof(dest));
-                printf("Message prive envoye a %s (%s)\n", pseudo, courant->adip);
-                found = 1;
                 break;
             }
             courant = courant->next;
         }
-        if (!found) printf("Erreur: pseudo %s introuvable.\n", pseudo);
     } else if (octet1 == '5') {
         sprintf(msg_out, "9BEUIP%s", message);
         courant = liste_utilisateurs;
@@ -164,7 +158,6 @@ static void commande(char octet1, char *message, char *pseudo) {
             }
             courant = courant->next;
         }
-        printf("Message broadcast envoye a tous.\n");
     }
 
     pthread_mutex_unlock(&table_mutex);
@@ -191,7 +184,6 @@ static void *serveur_udp(void *p) {
     SockConf.sin_port = htons(PORT);
 
     if (bind(sid, (struct sockaddr *) &SockConf, sizeof(SockConf)) == -1) {
-        perror("biceps: erreur bind port 9998 (deja utilise ?)");
         close(sid);
         return NULL;
     }
@@ -217,6 +209,12 @@ static void *serveur_udp(void *p) {
         }
         freeifaddrs(ifaddr);
     }
+    
+    bzero(&SockBcast, sizeof(SockBcast));
+    SockBcast.sin_family = AF_INET;
+    SockBcast.sin_addr.s_addr = inet_addr(BROADCAST_IP);
+    SockBcast.sin_port = htons(PORT);
+    sendto(sid, msg_out, strlen(msg_out), 0, (struct sockaddr *)&SockBcast, sizeof(SockBcast));
 
     ajouteElt(my_pseudo, "127.0.0.1");
 
@@ -230,33 +228,27 @@ static void *serveur_udp(void *p) {
                 char *sender_ip = addrip(ntohl(Sock.sin_addr.s_addr));
 
                 if (code == '1' || code == '2') {
-                    printf("\n[Serveur] Message recu de %s : code=%c pseudo=%s\n", sender_ip, code, payload);
                     ajouteElt(payload, sender_ip);
-                    
                     if (code == '1') {
                         sprintf(msg_out, "2BEUIP%s", my_pseudo);
                         sendto(sid, msg_out, strlen(msg_out), 0, (struct sockaddr *)&Sock, ls);
                     }
                 }
                 else if (code == '0') {
-                    printf("\n[Serveur] Deconnexion de %s\n", payload);
                     supprimeElt(sender_ip);
                 }
                 else if (code == '9') {
-                    int found = 0;
                     struct elt *courant;
                     pthread_mutex_lock(&table_mutex);
                     courant = liste_utilisateurs;
                     while (courant != NULL) {
                         if (strcmp(courant->adip, sender_ip) == 0) {
-                            printf("\n[Message de %s] : %s\n", courant->nom, payload);
-                            found = 1;
+                            printf("\nMessage de %s : %s\n", courant->nom, payload);
                             break;
                         }
                         courant = courant->next;
                     }
                     pthread_mutex_unlock(&table_mutex);
-                    if (!found) printf("\n[Message d'inconnu %s] : %s\n", sender_ip, payload);
                 }
             }
         }
