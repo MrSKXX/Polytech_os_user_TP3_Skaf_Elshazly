@@ -2,3 +2,6 @@
 biceps
 biceps-memory-leaks
 reppub/
+*.swp
+*~
+.biceps_history

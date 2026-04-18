@@ -1,51 +1,74 @@
 NOM: SKAF, EL SHAZLY
 PRENOM: Georges, Ahmed
 
-# BICEPS - Bel Interpréteur de Commandes des Elèves de Polytech Sorbonne
+# BICEPS - Bel Interpréteur de Commandes des Élèves de Polytech Sorbonne
 
-[cite_start]Ce projet consiste en la réalisation d'un interpréteur de commandes (shell) complet intégrant un protocole de communication réseau décentralisé (BEUIP) et un système d'échange de fichiers[cite: 4, 155, 288].
+Interpréteur de commandes intégrant le protocole BEUIP (UDP) pour la
+messagerie réseau décentralisée et un serveur TCP pour l'échange de fichiers.
 
-## Fonctionnalités implémentées
+## Fonctionnalités
 
-### Interpréteur de commandes (Shell)
-* [cite_start]**Commandes Internes** : `exit`, `cd`, `pwd`, `vers` et `beuip`[cite: 201, 231, 234, 377].
-* [cite_start]**Commandes Externes** : Exécution de n'importe quel binaire système via `fork` et `execvp`[cite: 217, 218].
-* [cite_start]**Pipelines** : Support de l'enchaînement de commandes via le caractère `|`[cite: 269].
-* [cite_start]**Redirections** : Gestion des redirections d'entrée/sortie (`<`, `>`, `>>`) et des erreurs (`2>`, `2>>`)[cite: 270].
-* [cite_start]**Historique** : Mémorisation et persistance des commandes saisies via la librairie `readline`[cite: 158, 241].
+### Shell
+- Commandes internes : `exit`, `cd`, `pwd`, `vers`, `beuip`
+- Commandes externes via `fork` + `execvp`
+- Pipelines avec `|`
+- Redirections `<`, `>`, `>>`, `2>`, `2>>`
+- Séquences avec `;`
+- Historique persistant (`~/.biceps_history`) via readline
+- Ctrl-C ignoré dans le shell, rétabli dans les commandes filles
+- Sortie via `exit` ou Ctrl-D
 
-### Protocole BEUIP (UDP)
-* [cite_start]**Auto-détection** : Identification automatique des interfaces réseau et récupération des adresses de broadcast via `getifaddrs`[cite: 58, 59].
-* [cite_start]**Gestion des présences** : Utilisation de messages UDP (codes '1' pour l'identification, '2' pour l'AR, '0' pour le départ) pour maintenir une liste chaînée dynamique des utilisateurs connectés[cite: 311, 313, 317, 367].
-* [cite_start]**Multi-threading** : Le serveur UDP tourne dans un thread séparé avec gestion des accès concurrents via des mutex[cite: 25, 28, 47].
+### Protocole BEUIP (UDP port 9998)
+- Auto-détection des interfaces réseau via `getifaddrs`
+- Broadcast complémentaire sur l'adresse définie par `BROADCAST_IP`
+- Codes : `0` (départ), `1` (identification), `2` (AR), `9` (message)
+- Serveur dans un thread séparé, synchronisation par mutex
+- Liste chaînée triée par pseudo
 
-### Échange de fichiers (TCP - Bonus Partie 3)
-* [cite_start]**Serveur TCP** : Un thread serveur dédié écoute sur le port 9998 pour gérer les requêtes de fichiers[cite: 93, 94].
-* [cite_start]**Exploration** : Commande `beuip ls` pour lister le contenu du répertoire public d'un utilisateur distant[cite: 97, 101].
-* [cite_start]**Transfert** : Commande `beuip get` pour télécharger un fichier depuis le répertoire `reppub/` d'un pair[cite: 110, 118].
+### Échange de fichiers (TCP port 9998)
+- Thread serveur TCP dédié
+- `beuip ls <pseudo>` : liste les fichiers du répertoire `reppub/` distant
+- `beuip get <pseudo> <fichier>` : télécharge un fichier distant
 
 ## Structure du code
 
-* [cite_start]**`biceps.c`** : Point d'entrée du programme, gestion de la boucle interactive et des commandes internes[cite: 155, 163, 222].
-* [cite_start]**`gescom.c` / `gescom.h`** : Librairie de gestion des commandes (analyse syntaxique, exécution, pipes et redirections)[cite: 249, 250].
-* [cite_start]**`creme.c` / `creme.h`** : Librairie réseau (Commandes Rapides pour l'Envoi de Messages Evolués) gérant les serveurs UDP/TCP et la liste des utilisateurs[cite: 288, 373, 374].
+- `biceps.c` : point d'entrée, boucle REPL, commandes internes
+- `gescom.c` / `gescom.h` : analyse des commandes, exécution, pipes, redirections
+- `creme.c` / `creme.h` : serveurs UDP/TCP, liste chaînée, protocole BEUIP
 
-## Compilation et Utilisation
+## Compilation
 
-### Compilation
-* **Standard** : `make` produit le binaire `biceps`.
-* **Nettoyage** : `make clean` supprime les objets et les exécutables.
-* **Valgrind** : `make memory-leak` produit le binaire `biceps-memory-leaks` avec les options `-g -O0` pour l'analyse mémoire.
+| Commande | Résultat |
+|----------|----------|
+| `make` | produit l'exécutable `biceps` |
+| `make memory-leak` | produit `biceps-memory-leaks` avec `-g -O0` |
+| `make clean` | supprime tous les binaires et fichiers objets |
 
-### Commandes BEUIP
-* `beuip start <pseudo>` : Lance les serveurs UDP et TCP.
-* `beuip stop` : Arrête proprement les serveurs et informe le réseau.
-* `beuip list` : Affiche les utilisateurs présents au format `IP : pseudo`.
-* `beuip message <user> <message>` : Envoie un message privé à un utilisateur.
-* `beuip message all <message>` : Envoie un message à tous les utilisateurs (broadcast).
-* `beuip ls <pseudo>` : Liste les fichiers du répertoire `reppub` de l'utilisateur.
-* `beuip get <pseudo> <nomfic>` : Télécharge le fichier spécifié dans le répertoire local `reppub/`.
+## Commandes BEUIP
 
-## Tests de fuites mémoire
-Pour vérifier l'intégrité de la mémoire, utilisez la commande suivante :
-`valgrind --leak-check=full --track-origins=yes --errors-for-leak-kinds=all --error-exitcode=1 ./biceps-memory-leaks`
+| Commande | Description |
+|----------|-------------|
+| `beuip start <pseudo>` | Démarre les serveurs UDP et TCP |
+| `beuip stop` | Arrête proprement les serveurs |
+| `beuip list` | Affiche les utilisateurs connectés au format `IP : pseudo` |
+| `beuip message <user> <message>` | Envoie un message privé |
+| `beuip message all <message>` | Diffuse un message à tous les utilisateurs |
+| `beuip ls <pseudo>` | Liste les fichiers du `reppub/` distant |
+| `beuip get <pseudo> <fichier>` | Télécharge un fichier dans le `reppub/` local |
+
+## Vérification mémoire
+
+```
+make memory-leak
+valgrind --leak-check=full --track-origins=yes --error-exitcode=1 ./biceps-memory-leaks
+```
+
+Aucune fuite provenant du code utilisateur (`definitely lost`, `indirectly lost`
+et `possibly lost` sont tous à 0). Les blocs `still reachable` reportés sont
+intrinsèques à la bibliothèque `readline` et à `libtinfo` (initialisation du
+terminal non libérée par readline), hors du contrôle du code utilisateur.
+
+## Adresse broadcast
+
+L'adresse `192.168.88.255` est définie dans un unique `#define BROADCAST_IP`
+dans `creme.h` et peut être modifiée à cet endroit unique.

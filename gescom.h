@@ -10,5 +10,6 @@ void listeComInt(void);
 int execComInt(int N, char **P);
 int execComExt(char **P);
 int execPipeline(char *cmd_seq);
+void cleanupMots(void);
 
 #endif

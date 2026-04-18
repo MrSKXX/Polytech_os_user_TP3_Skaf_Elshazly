@@ -8,26 +8,24 @@
 #include "gescom.h"
 #include "creme.h"
 
+static int should_exit = 0;
+
 int Sortie(int N, char **P)
 {
     (void)N;
     (void)P;
-    beuip_stop();
-    exit(0);
+    should_exit = 1;
+    return 1;
 }
 
 int CommandeCD(int N, char **P)
 {
     if (N > 1) {
-        if (chdir(P[1]) != 0) {
-            perror("biceps: cd");
-        }
+        if (chdir(P[1]) != 0) perror("biceps: cd");
     } else {
         char *home = getenv("HOME");
         if (home != NULL) {
-            if (chdir(home) != 0) {
-                perror("biceps: cd");
-            }
+            if (chdir(home) != 0) perror("biceps: cd");
         } else {
             fprintf(stderr, "biceps: cd: variable HOME non definie\n");
         }
@@ -38,9 +36,8 @@ int CommandeCD(int N, char **P)
 int CommandePWD(int N, char **P)
 {
     char cwd[1024];
-    (void)N; 
+    (void)N;
     (void)P;
-
     if (getcwd(cwd, sizeof(cwd)) != NULL) {
         printf("%s\n", cwd);
     } else {
@@ -51,16 +48,19 @@ int CommandePWD(int N, char **P)
 
 int CommandeVers(int N, char **P)
 {
-    (void)N; 
+    (void)N;
     (void)P;
-    printf("biceps version finale (TP3)\n");
+    printf("biceps version 3.0\n");
     return 1;
 }
 
 int CommandeBeuip(int N, char **P)
 {
-    if (N < 2) return 1;
-    
+    if (N < 2) {
+        fprintf(stderr, "Utilisation: beuip start|stop|list|message|ls|get ...\n");
+        return 1;
+    }
+
     if (strcmp(P[1], "start") == 0 && N >= 3) {
         beuip_start(P[2]);
     } else if (strcmp(P[1], "stop") == 0) {
@@ -74,10 +74,17 @@ int CommandeBeuip(int N, char **P)
     } else if (strcmp(P[1], "message") == 0 && N >= 4) {
         char msg[1024] = "";
         int i;
-        
+        size_t space_left = sizeof(msg) - 1;
+
         for (i = 3; i < N; i++) {
+            size_t wlen = strlen(P[i]);
+            if (wlen >= space_left) break;
             strcat(msg, P[i]);
-            if (i < N - 1) strcat(msg, " ");
+            space_left -= wlen;
+            if (i < N - 1 && space_left > 1) {
+                strcat(msg, " ");
+                space_left--;
+            }
         }
 
         if (strcmp(P[2], "all") == 0) {
@@ -85,6 +92,8 @@ int CommandeBeuip(int N, char **P)
         } else {
             beuip_mess_pseudo(P[2], msg);
         }
+    } else {
+        fprintf(stderr, "beuip: commande inconnue ou parametres manquants\n");
     }
     return 1;
 }
@@ -103,11 +112,11 @@ int main(void)
     char *line;
     char *prompt;
     char *user;
+    char *home;
     char hostname[256];
     char promptchar;
-    int i;
     char hist_file[512];
-    char *home;
+    int have_hist = 0;
 
     signal(SIGINT, SIG_IGN);
     majComInt();
@@ -116,57 +125,45 @@ int main(void)
     if (home != NULL) {
         snprintf(hist_file, sizeof(hist_file), "%s/.biceps_history", home);
         read_history(hist_file);
+        have_hist = 1;
     }
 
-    prompt = malloc(512 * sizeof(char));
+    prompt = malloc(512);
     if (prompt == NULL) {
         fprintf(stderr, "biceps: erreur malloc prompt\n");
-        exit(1);
+        return 1;
     }
 
     user = getenv("USER");
     if (user == NULL) user = "unknown";
 
-    if (gethostname(hostname, sizeof(hostname)) != 0)
+    if (gethostname(hostname, sizeof(hostname)) != 0) {
         strcpy(hostname, "unknown");
+    }
 
-    if (getuid() == 0)
-        promptchar = '#';
-    else
-        promptchar = '$';
-
+    promptchar = (getuid() == 0) ? '#' : '$';
     snprintf(prompt, 512, "%s@%s%c ", user, hostname, promptchar);
 
-    while ((line = readline(prompt)) != NULL) {
-        if (*line != '\0') {
-            add_history(line);
-        }
+    while (!should_exit) {
+        line = readline(prompt);
+        if (line == NULL) break;
+
+        if (*line != '\0') add_history(line);
 
         char *line_ptr = line;
         char *cmd_seq;
-
         while ((cmd_seq = strsep(&line_ptr, ";")) != NULL) {
             execPipeline(cmd_seq);
+            if (should_exit) break;
         }
         free(line);
     }
 
-    if (home != NULL) {
-        write_history(hist_file);
-    }
-
-    free(prompt);
-    
-    if (Mots != NULL) {
-        for (i = 0; i < NMots; i++) {
-            free(Mots[i]);
-        }
-        free(Mots);
-    }
+    if (have_hist) write_history(hist_file);
 
     beuip_stop();
-
-    /* Liberation de l'historique readline pour eviter les fuites memoire */
+    cleanupMots();
+    free(prompt);
     clear_history();
 
     return 0;
