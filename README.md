@@ -35,6 +35,8 @@ messagerie réseau décentralisée et un serveur TCP pour l'échange de fichiers
 - `biceps.c` : point d'entrée, boucle REPL, commandes internes
 - `gescom.c` / `gescom.h` : analyse des commandes, exécution, pipes, redirections
 - `creme.c` / `creme.h` : serveurs UDP/TCP, liste chaînée, protocole BEUIP
+- `legacy/` : sources des étapes intermédiaires des TP1 et TP2, conservées pour
+  référence (non compilées par le Makefile principal)
 
 ## Compilation
 
@@ -58,15 +60,19 @@ messagerie réseau décentralisée et un serveur TCP pour l'échange de fichiers
 
 ## Vérification mémoire
 
-```
+Test standard recommandé :
 make memory-leak
 valgrind --leak-check=full --track-origins=yes --error-exitcode=1 ./biceps-memory-leaks
-```
 
-Aucune fuite provenant du code utilisateur (`definitely lost`, `indirectly lost`
-et `possibly lost` sont tous à 0). Les blocs `still reachable` reportés sont
-intrinsèques à la bibliothèque `readline` et à `libtinfo` (initialisation du
-terminal non libérée par readline), hors du contrôle du code utilisateur.
+Le code utilisateur ne présente aucune fuite : `definitely lost`,
+`indirectly lost` et `possibly lost` sont tous à 0.
+
+Avec l'option stricte `--errors-for-leak-kinds=all`, valgrind signale
+environ 230 Ko de blocs `still reachable` provenant intégralement de
+`libreadline` et `libtinfo` (initialisation du terminal non libérée par
+la bibliothèque elle-même, observable même sur un programme minimal
+appelant uniquement `readline("> ")`). Ces allocations sont hors du
+contrôle du code utilisateur.
 
 ## Adresse broadcast
 
